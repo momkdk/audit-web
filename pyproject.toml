@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "audit-web"
+version = "0.1.0"
+description = "Audit défensif en lecture seule des en-têtes de sécurité HTTP et du certificat TLS d'un site"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Mohamed Ali El Amri" }]
+keywords = ["sécurité", "audit", "en-têtes http", "tls", "owasp"]
+
+[project.scripts]
+audit-web = "audit_web.__main__:main"
+
+[tool.setuptools]
+packages = ["audit_web"]
