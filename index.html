@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Audit d'en-têtes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout : app en deux colonnes — zone de collage à gauche, verdict ligne par ligne à droite, empilés sur mobile */
+:root{
+  --bg:#F3F6F8; --surface:#FFFFFF; --surface-2:#EAF0F4; --ink:#13233B; --muted:#5A6B82;
+  --line:#D7E0E8; --accent:#2B5AA3; --accent-ink:#FFFFFF;
+  --ok:#2F8F5F; --warn:#B9790E; --danger:#C0392B;
+  --display:'Barlow Condensed',sans-serif; --body:'Public Sans',sans-serif; --mono:'IBM Plex Mono',monospace;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1A2B; --surface:#152439; --surface-2:#1C3049; --ink:#E7ECF2; --muted:#93A4BA;
+    --line:#2A3E57; --accent:#6E9FDC; --accent-ink:#0E1A2B;
+    --ok:#4FBE82; --warn:#E3A73B; --danger:#E0564A; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1A2B; --surface:#152439; --surface-2:#1C3049; --ink:#E7ECF2; --muted:#93A4BA;
+  --line:#2A3E57; --accent:#6E9FDC; --accent-ink:#0E1A2B;
+  --ok:#4FBE82; --warn:#E3A73B; --danger:#E0564A; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;line-height:1.45}
+.wrap{max-width:980px;margin:0 auto;padding:28px max(16px,env(safe-area-inset-left,0px)) 64px max(16px,env(safe-area-inset-right,0px))}
+header.app{margin-bottom:10px}
+.mark{font-family:var(--mono);font-size:12px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:2px 6px;letter-spacing:.04em}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(28px,5vw,40px);margin:8px 0 4px;text-wrap:balance}
+.subtitle{color:var(--muted);font-size:15px;max-width:62ch}
+.warnbox{background:var(--surface-2);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:8px;padding:12px 14px;font-size:13.5px;color:var(--muted);margin:18px 0}
+.warnbox b{color:var(--ink)}
+.cols{display:grid;grid-template-columns:1.1fr 1fr;gap:18px;margin-top:8px}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;min-width:0}
+.card h2{font-family:var(--display);font-weight:600;font-size:19px;margin:0 0 10px}
+textarea{width:100%;min-height:260px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:var(--mono);font-size:12.5px;color:var(--ink);resize:vertical}
+.hint{font-size:12px;color:var(--muted);margin-top:8px}
+.hint code{font-family:var(--mono);background:var(--surface-2);padding:1px 5px;border-radius:4px}
+.btn{margin-top:12px;background:var(--accent);color:var(--accent-ink);border:none;border-radius:8px;padding:10px 16px;font-family:var(--body);font-weight:600;font-size:14px;cursor:pointer}
+.btn:active{opacity:.85}
+ul.results{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+ul.results li{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-radius:8px;background:var(--surface-2);font-size:13.5px}
+.pill{flex:0 0 auto;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;padding:2px 7px;border-radius:999px;margin-top:2px}
+.pill.ok{background:color-mix(in srgb, var(--ok) 20%, transparent);color:var(--ok)}
+.pill.warn{background:color-mix(in srgb, var(--warn) 22%, transparent);color:var(--warn)}
+.pill.danger{background:color-mix(in srgb, var(--danger) 22%, transparent);color:var(--danger)}
+.results b{font-family:var(--mono);font-size:12.5px}
+.summary{display:flex;gap:14px;margin-bottom:14px;font-size:13px;flex-wrap:wrap}
+.summary span{font-family:var(--mono);font-variant-numeric:tabular-nums}
+footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px 18px}
+footer a{color:var(--accent);text-decoration:none}
+footer a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <span class="mark">02 / 04</span>
+    <h1>Audit d'en-têtes</h1>
+    <div class="subtitle">Analyse défensive des en-têtes de sécurité HTTP d'une réponse — collez-les, l'analyse se fait dans votre navigateur, rien n'est envoyé nulle part.</div>
+  </header>
+
+  <div class="warnbox">
+    <b>Pourquoi coller les en-têtes plutôt qu'entrer une URL ?</b> Un navigateur ne peut pas lire les en-têtes d'un site tiers pour des raisons de sécurité (CORS). La version en ligne de commande (<a href="https://github.com/momkdk/audit-web" target="_blank" rel="noopener" style="color:inherit">voir le dépôt</a>) interroge directement le site. Ici, récupérez les en-têtes vous-même — onglet Réseau de votre navigateur, ou <code style="font-family:var(--mono)">curl -I https://votresite.fr</code> — et collez-les ci-contre. À utiliser sur vos propres sites, ou ceux que vous êtes autorisé à auditer.
+  </div>
+
+  <div class="cols">
+    <div class="card">
+      <h2>En-têtes HTTP</h2>
+      <textarea id="entrees" spellcheck="false">HTTP/2 200
+strict-transport-security: max-age=63072000
+x-content-type-options: nosniff
+x-frame-options: DENY
+set-cookie: session=abc123; Secure
+server: nginx/1.25.3</textarea>
+      <p class="hint">Un en-tête par ligne, au format <code>Nom: valeur</code>. Les lignes sans « : » (ligne de statut HTTP) sont ignorées.</p>
+      <button class="btn" onclick="analyser()">Analyser</button>
+    </div>
+    <div class="card">
+      <h2>Résultat</h2>
+      <div class="summary" id="resume"></div>
+      <ul class="results" id="resultats"></ul>
+    </div>
+  </div>
+
+  <footer>
+    <span>Mohamed-Ali El Amri — développeur freelance Python &amp; IA, Cluses (Haute-Savoie)</span>
+    <a href="https://github.com/momkdk/audit-web" target="_blank" rel="noopener">Code source (MIT)</a>
+    <a href="https://github.com/momkdk" target="_blank" rel="noopener">Tous les outils</a>
+  </footer>
+</div>
+
+<script>
+const RECOMMANDATIONS = {
+  'strict-transport-security': "impose HTTPS au navigateur et limite les attaques de rétrogradation vers HTTP",
+  'content-security-policy': "réduit le risque d'injection de scripts (XSS) en limitant les sources autorisées",
+  'x-content-type-options': "empêche le navigateur de deviner un type de contenu différent de celui déclaré",
+  'x-frame-options': "limite le risque de clickjacking (affichage du site dans un cadre invisible)",
+  'referrer-policy': "limite les informations envoyées à des sites tiers via l'en-tête Referer",
+  'permissions-policy': "restreint l'accès des scripts à des fonctions sensibles (caméra, micro, géolocalisation)"
+};
+
+function parserEntetes(texte){
+  const entetes={};
+  texte.split('\n').forEach(ligne=>{
+    const i=ligne.indexOf(':');
+    if(i<=0) return;
+    const nom=ligne.slice(0,i).trim().toLowerCase();
+    const valeur=ligne.slice(i+1).trim();
+    if(!nom) return;
+    entetes[nom]= entetes[nom]? entetes[nom]+', '+valeur : valeur;
+  });
+  return entetes;
+}
+
+function analyser(){
+  const entetes=parserEntetes(el('entrees').value);
+  const items=[];
+  let ok=0, warn=0, manquant=0;
+
+  for(const [nom,role] of Object.entries(RECOMMANDATIONS)){
+    if(entetes[nom]){ items.push({niveau:'ok', titre:nom, msg:`présent : ${role}`}); ok++; }
+    else { items.push({niveau:'danger', titre:nom, msg:`absent : ${role}`}); manquant++; }
+  }
+
+  if(entetes['set-cookie']){
+    const c=entetes['set-cookie'].toLowerCase();
+    const manques=['secure','httponly','samesite'].filter(a=>!c.includes(a));
+    if(manques.length){ items.push({niveau:'warn', titre:'set-cookie', msg:`cookie observé sans : ${manques.join(', ')}`}); warn++; }
+    else { items.push({niveau:'ok', titre:'set-cookie', msg:'cookie avec Secure, HttpOnly et SameSite'}); ok++; }
+  }
+  if(entetes['server']){
+    items.push({niveau:'warn', titre:'server', msg:`révèle « ${entetes['server']} » (expose la techno/version)`}); warn++;
+  }
+
+  el('resume').innerHTML = `<span style="color:var(--ok)">${ok} ok</span> · <span style="color:var(--warn)">${warn} à surveiller</span> · <span style="color:var(--danger)">${manquant} manquant(s)</span>`;
+  el('resultats').innerHTML = items.map(it=>`<li><span class="pill ${it.niveau}">${it.niveau==='ok'?'OK':it.niveau==='warn'?'Attention':'Manquant'}</span><span><b>${it.titre}</b> — ${it.msg}</span></li>`).join('');
+}
+
+function el(id){return document.getElementById(id)}
+analyser();
+</script>
+</body>
+</html>
